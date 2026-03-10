@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FormulaAI – Excel Add-in</title>
+  <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --border: #2a2e3f;
+      --accent: #00e5a0;
+      --accent2: #4f6ef7;
+      --text: #e8eaf0;
+      --muted: #6b7280;
+      --danger: #ff4d6d;
+      --mono: 'DM Mono', monospace;
+      --sans: 'Syne', sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* Header */
+    .header {
+      padding: 16px 18px 12px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+      position: relative;
+    }
+    .header-logo {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .logo-icon {
+      width: 28px; height: 28px;
+      background: var(--accent);
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+      font-weight: 800;
+      color: #0f1117;
+      letter-spacing: -1px;
+    }
+    .logo-text {
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+    .logo-text span { color: var(--accent); }
+
+    /* API Key section */
+    .api-section {
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .api-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .api-row {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .api-input {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 11px;
+      padding: 7px 10px;
+      border-radius: 6px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .api-input:focus { border-color: var(--accent2); }
+    .api-save-btn {
+      background: var(--accent2);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 7px 12px;
+      font-family: var(--sans);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: opacity 0.2s;
+    }
+    .api-save-btn:hover { opacity: 0.85; }
+    .api-status {
+      font-size: 10px;
+      margin-top: 5px;
+      height: 13px;
+    }
+    .api-status.ok { color: var(--accent); }
+    .api-status.err { color: var(--danger); }
+
+    /* Main content */
+    .main {
+      flex: 1;
+      padding: 16px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    /* Section label */
+    .section-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    /* Context input (optional cell range) */
+    .context-row {
+      display: flex;
+      gap: 6px;
+    }
+    .context-input {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 8px 10px;
+      border-radius: 7px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .context-input:focus { border-color: var(--accent); }
+    .detect-btn {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 7px;
+      padding: 8px 10px;
+      font-size: 11px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+    .detect-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* Prompt textarea */
+    .prompt-wrap {
+      position: relative;
+    }
+    .prompt-textarea {
+      width: 100%;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 13px;
+      line-height: 1.5;
+      padding: 10px 12px 36px;
+      border-radius: 10px;
+      outline: none;
+      resize: none;
+      min-height: 90px;
+      transition: border-color 0.2s;
+    }
+    .prompt-textarea:focus { border-color: var(--accent); }
+    .prompt-textarea::placeholder { color: var(--muted); font-size: 12px; }
+
+    /* Generate button inside textarea */
+    .generate-btn {
+      position: absolute;
+      bottom: 8px;
+      right: 8px;
+      background: var(--accent);
+      color: #0f1117;
+      border: none;
+      border-radius: 7px;
+      padding: 5px 14px;
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      transition: opacity 0.2s, transform 0.1s;
+    }
+    .generate-btn:hover { opacity: 0.88; transform: scale(1.02); }
+    .generate-btn:active { transform: scale(0.98); }
+    .generate-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    /* Spinner */
+    .spinner {
+      width: 12px; height: 12px;
+      border: 2px solid rgba(0,0,0,0.3);
+      border-top-color: #000;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Result area */
+    .result-area {
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+      animation: fadeUp 0.3s ease;
+    }
+    .result-area.visible { display: flex; }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .formula-box {
+      background: #0a0d14;
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--accent);
+      word-break: break-all;
+      line-height: 1.6;
+      position: relative;
+      min-height: 44px;
+    }
+
+    .explanation-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 12px;
+      color: #a0a8b8;
+      line-height: 1.6;
+    }
+
+    /* Action buttons */
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 7px;
+    }
+    .action-btn {
+      border: none;
+      border-radius: 8px;
+      padding: 9px 10px;
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+    }
+    .action-btn:hover { opacity: 0.85; transform: translateY(-1px); }
+    .action-btn:active { transform: translateY(0); }
+    .btn-insert {
+      background: var(--accent);
+      color: #0f1117;
+      grid-column: 1 / -1;
+    }
+    .btn-copy {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .btn-clear {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+
+    /* History */
+    .history-section {
+      border-top: 1px solid var(--border);
+      padding: 14px 18px;
+    }
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+      max-height: 160px;
+      overflow-y: auto;
+    }
+    .history-list::-webkit-scrollbar { width: 4px; }
+    .history-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .history-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 8px 10px;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .history-item:hover { border-color: var(--accent2); }
+    .history-prompt {
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .history-formula {
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--accent);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 16px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 12px;
+      padding: 8px 16px;
+      border-radius: 20px;
+      opacity: 0;
+      transition: all 0.25s;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+    .toast.success { border-color: var(--accent); color: var(--accent); }
+
+    /* Empty state */
+    .empty-state {
+      text-align: center;
+      padding: 20px 0;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    /* Error message */
+    .error-msg {
+      background: rgba(255, 77, 109, 0.1);
+      border: 1px solid var(--danger);
+      color: var(--danger);
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 12px;
+      display: none;
+    }
+    .error-msg.visible { display: block; }
+  </style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-logo">
+    <div class="logo-icon">fx</div>
+    <div class="logo-text">Formula<span>AI</span></div>
+  </div>
+</div>
+
+<!-- API Key -->
+<div class="api-section">
+  <div class="api-label">Clave API Anthropic</div>
+  <div class="api-row">
+    <input type="password" class="api-input" id="apiKeyInput" placeholder="sk-ant-..." />
+    <button class="api-save-btn" onclick="saveApiKey()">Guardar</button>
+  </div>
+  <div class="api-status" id="apiStatus"></div>
+</div>
+
+<!-- Main -->
+<div class="main">
+
+  <!-- Context range -->
+  <div>
+    <div class="section-label">Rango de contexto (opcional)</div>
+    <div class="context-row">
+      <input type="text" class="context-input" id="contextRange" placeholder="Ej: A1:D20 – nombres de columnas..." />
+      <button class="detect-btn" onclick="detectSelection()">📍 Detectar</button>
+    </div>
+  </div>
+
+  <!-- Prompt -->
+  <div>
+    <div class="section-label">¿Qué necesitas calcular?</div>
+    <div class="prompt-wrap">
+      <textarea class="prompt-textarea" id="promptInput" rows="4"
+        placeholder="Ej: Suma los valores de la columna B solo si la columna A dice 'Ventas' y la columna C es mayor a 100..."></textarea>
+      <button class="generate-btn" id="generateBtn" onclick="generateFormula()">
+        <span id="btnText">Generar</span>
+        <span id="btnIcon">⚡</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Error -->
+  <div class="error-msg" id="errorMsg"></div>
+
+  <!-- Result -->
+  <div class="result-area" id="resultArea">
+    <div class="section-label">Fórmula generada</div>
+    <div class="formula-box" id="formulaBox"></div>
+    <div class="explanation-box" id="explanationBox"></div>
+    <div class="actions">
+      <button class="action-btn btn-insert" onclick="insertFormula()">
+        ↳ Insertar en celda seleccionada
+      </button>
+      <button class="action-btn btn-copy" onclick="copyFormula()">
+        📋 Copiar
+      </button>
+      <button class="action-btn btn-clear" onclick="clearResult()">
+        ✕ Limpiar
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<!-- History -->
+<div class="history-section" id="historySection" style="display:none">
+  <div class="section-label" style="margin-bottom:8px">Historial reciente</div>
+  <div class="history-list" id="historyList"></div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+  let apiKey = '';
+  let currentFormula = '';
+  let history = [];
+
+  // Office.js init
+  Office.onReady((info) => {
+    if (info.host === Office.HostType.Excel) {
+      console.log('FormulaAI ready in Excel');
+    }
+    // Load saved key from sessionStorage
+    const saved = sessionStorage.getItem('fa_apikey');
+    if (saved) {
+      apiKey = saved;
+      document.getElementById('apiKeyInput').value = saved;
+      showApiStatus('✓ Clave cargada', 'ok');
+    }
+    loadHistory();
+  });
+
+  function saveApiKey() {
+    const val = document.getElementById('apiKeyInput').value.trim();
+    if (!val.startsWith('sk-ant-')) {
+      showApiStatus('Formato inválido. Debe comenzar con sk-ant-', 'err');
+      return;
+    }
+    apiKey = val;
+    sessionStorage.setItem('fa_apikey', val);
+    showApiStatus('✓ Clave guardada correctamente', 'ok');
+  }
+
+  function showApiStatus(msg, type) {
+    const el = document.getElementById('apiStatus');
+    el.textContent = msg;
+    el.className = 'api-status ' + type;
+    if (type === 'ok') setTimeout(() => { el.textContent = ''; }, 3000);
+  }
+
+  async function detectSelection() {
+    try {
+      await Excel.run(async (ctx) => {
+        const range = ctx.workbook.getSelectedRange();
+        range.load(['address', 'values']);
+        await ctx.sync();
+
+        let addr = range.address;
+        // Try to get header row values
+        const vals = range.values;
+        let headers = '';
+        if (vals && vals[0]) {
+          headers = vals[0].filter(v => v !== '').join(', ');
+        }
+        const contextText = headers ? `${addr} (columnas: ${headers})` : addr;
+        document.getElementById('contextRange').value = contextText;
+        showToast('Rango detectado: ' + addr, 'success');
+      });
+    } catch (e) {
+      document.getElementById('contextRange').value = 'No se pudo detectar';
+    }
+  }
+
+  async function generateFormula() {
+    const prompt = document.getElementById('promptInput').value.trim();
+    if (!prompt) { showToast('Escribe lo que necesitas calcular'); return; }
+    if (!apiKey) { showToast('Ingresa tu clave API primero'); return; }
+
+    const context = document.getElementById('contextRange').value.trim();
+    setLoading(true);
+    hideError();
+    hideResult();
+
+    const systemPrompt = `Eres un experto en Microsoft Excel. Tu tarea es generar fórmulas de Excel precisas basadas en la descripción del usuario.
+
+INSTRUCCIONES:
+- Responde SOLO en JSON con este formato exacto:
+  {"formula": "=TU_FORMULA_AQUI", "explanation": "Explicación breve en español de cómo funciona"}
+- La fórmula debe comenzar con =
+- Usa funciones en inglés (SUM, IF, VLOOKUP, etc.)
+- Si necesitas referencias de celdas y no tienes rango específico, usa referencias genéricas como A2:A100
+- La explicación debe ser concisa (máximo 2 oraciones)
+- No incluyas nada más que el JSON`;
+
+    const userMsg = context
+      ? `Contexto del rango: ${context}\n\nNecesito: ${prompt}`
+      : `Necesito: ${prompt}`;
+
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 500,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userMsg }]
+        })
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error?.message || `Error ${res.status}`);
+      }
+
+      const data = await res.json();
+      const text = data.content?.[0]?.text || '';
+
+      // Parse JSON
+      const cleaned = text.replace(/```json|```/g, '').trim();
+      const parsed = JSON.parse(cleaned);
+
+      currentFormula = parsed.formula;
+      showResult(parsed.formula, parsed.explanation);
+      addToHistory(prompt, parsed.formula);
+
+    } catch (e) {
+      showError('Error: ' + e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function showResult(formula, explanation) {
+    document.getElementById('formulaBox').textContent = formula;
+    document.getElementById('explanationBox').textContent = explanation;
+    document.getElementById('resultArea').classList.add('visible');
+  }
+
+  function hideResult() {
+    document.getElementById('resultArea').classList.remove('visible');
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('errorMsg');
+    el.textContent = msg;
+    el.classList.add('visible');
+  }
+
+  function hideError() {
+    document.getElementById('errorMsg').classList.remove('visible');
+  }
+
+  function clearResult() {
+    hideResult();
+    document.getElementById('promptInput').value = '';
+    document.getElementById('contextRange').value = '';
+    currentFormula = '';
+  }
+
+  async function insertFormula() {
+    if (!currentFormula) return;
+    try {
+      await Excel.run(async (ctx) => {
+        const range = ctx.workbook.getSelectedRange();
+        range.load('address');
+        await ctx.sync();
+        range.formulas = [[currentFormula]];
+        await ctx.sync();
+        showToast('✓ Fórmula insertada en ' + range.address, 'success');
+      });
+    } catch (e) {
+      showToast('Error al insertar: abre un libro de Excel');
+    }
+  }
+
+  function copyFormula() {
+    if (!currentFormula) return;
+    navigator.clipboard.writeText(currentFormula).then(() => {
+      showToast('✓ Copiado al portapapeles', 'success');
+    }).catch(() => {
+      // Fallback
+      const ta = document.createElement('textarea');
+      ta.value = currentFormula;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      showToast('✓ Copiado', 'success');
+    });
+  }
+
+  function setLoading(val) {
+    const btn = document.getElementById('generateBtn');
+    const txt = document.getElementById('btnText');
+    const icon = document.getElementById('btnIcon');
+    btn.disabled = val;
+    if (val) {
+      txt.textContent = 'Generando';
+      icon.innerHTML = '<div class="spinner"></div>';
+    } else {
+      txt.textContent = 'Generar';
+      icon.textContent = '⚡';
+    }
+  }
+
+  function showToast(msg, type = '') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast show ' + type;
+    setTimeout(() => { t.className = 'toast'; }, 2500);
+  }
+
+  function addToHistory(prompt, formula) {
+    history.unshift({ prompt, formula });
+    if (history.length > 10) history.pop();
+    sessionStorage.setItem('fa_history', JSON.stringify(history));
+    renderHistory();
+  }
+
+  function loadHistory() {
+    const saved = sessionStorage.getItem('fa_history');
+    if (saved) {
+      history = JSON.parse(saved);
+      renderHistory();
+    }
+  }
+
+  function renderHistory() {
+    const section = document.getElementById('historySection');
+    const list = document.getElementById('historyList');
+    if (!history.length) { section.style.display = 'none'; return; }
+    section.style.display = 'block';
+    list.innerHTML = history.map((item, i) => `
+      <div class="history-item" onclick="loadHistoryItem(${i})">
+        <div class="history-prompt">${escHtml(item.prompt)}</div>
+        <div class="history-formula">${escHtml(item.formula)}</div>
+      </div>
+    `).join('');
+  }
+
+  function loadHistoryItem(i) {
+    const item = history[i];
+    document.getElementById('promptInput').value = item.prompt;
+    currentFormula = item.formula;
+    showResult(item.formula, 'Fórmula del historial.');
+  }
+
+  function escHtml(str) {
+    return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // Allow Enter + Ctrl/Cmd to generate
+  document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('promptInput').addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') generateFormula();
+    });
+  });
+</script>
+</body>
+</html>
